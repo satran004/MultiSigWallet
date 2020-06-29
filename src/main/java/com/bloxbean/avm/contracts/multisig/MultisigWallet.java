@@ -5,7 +5,6 @@ import avm.Blockchain;
 import org.aion.avm.tooling.abi.Callable;
 import org.aion.avm.tooling.abi.Fallback;
 import org.aion.avm.tooling.abi.Initializable;
-import org.aion.avm.userlib.AionList;
 import org.aion.avm.userlib.AionMap;
 import org.aion.avm.userlib.AionSet;
 import org.aion.avm.userlib.abi.ABIDecoder;
@@ -31,8 +30,9 @@ public class MultisigWallet {
     public static int transactionCount;
 
     //Storage
-    private static Map<Long, Transaction> transactions;
-    private static Map<Long, Map<Address, Boolean>> confirmations;
+    private static Map<Long, Transaction> transactions;  //TODO replace it with Blockchain.putStorage api
+
+    private static Map<Long, AionMap<Address, Boolean>> confirmations;
     private static Map<Address, Boolean> ownersMap;
 
     public static class Transaction {
@@ -149,5 +149,49 @@ public class MultisigWallet {
     }
 
 
+    /// @dev Allows an owner to submit and confirm a transaction.
+    /// @param destination Transaction target address.
+    /// @param value Transaction ether value.
+    /// @param data Transaction data payload.
+    /// @return Returns transaction ID.
+    @Callable
+    public static void submitTransaction(Address destination, BigInteger value, byte[] data) {
+        long transactionId = addTransaction(destination, value, data);
+        confirmTransaction(transactionId);
+    }
+
+    private static long addTransaction(Address destination, BigInteger value, byte[] data) {
+        long transactionId = transactionCount;
+
+        Transaction transaction = new Transaction();
+        transaction.destination = destination;
+        transaction.value = value;
+        transaction.data = data;
+
+        transactions.put(transactionId, transaction);
+        transactionCount++;
+
+        //TODO transaction submission event
+
+        return transactionId;
+    }
+
+    /// @dev Allows an owner to confirm a transaction.
+    /// @param transactionId Transaction ID.
+    private static void confirmTransaction(long transactionId) {
+        ownerExists(getCaller());
+        transactionExists(transactionId);
+        notConfirmed(transactionId, getCaller());
+
+        Map<Address, Boolean> confirmationMap = confirmations.getOrDefault(transactionId,new AionMap());
+        confirmationMap.put(getCaller(), true);
+        //TODO confirmation event
+
+        executeTransaction(transactionId);
+    }
+
+    private static void executeTransaction(long transactionId) {
+
+    }
 
 }
